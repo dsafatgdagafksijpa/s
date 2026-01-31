@@ -24,6 +24,11 @@ public final class AutoMace extends Module {
 
     private final NumberSetting minFallDistance = new NumberSetting("Min Fall Distance", 1.0, 10.0, 3.0, 0.5);
     private final NumberSetting attackDelay = new NumberSetting("Attack Delay", 0, 500, 100, 10);
+    private final NumberSetting slamDelay =
+        new NumberSetting("Stun Slam Delay", 50, 500, 200, 25);
+
+private final TimerUtil slamTimer = new TimerUtil();
+
     private final NumberSetting densityThreshold = new NumberSetting("Density Threshold", 1.0, 20.0, 7.0, 0.5);
     private final BooleanSetting targetPlayers = new BooleanSetting("Target Players", true);
     private final BooleanSetting targetMobs = new BooleanSetting("Target Mobs", false);
@@ -43,7 +48,7 @@ public final class AutoMace extends Module {
     public AutoMace() {
         super("Auto Mace", "Automatically attacks with mace", -1, Category.COMBAT);
         this.addSettings(minFallDistance, attackDelay, densityThreshold, targetPlayers, targetMobs, stunSlam,
-                onlyAxe, autoSwitch, stayOnMace);
+        onlyAxe, autoSwitch, stayOnMace, slamDelay);
     }
 
     @EventHandler
@@ -119,24 +124,37 @@ public final class AutoMace extends Module {
         }
 
         if (targetBlocking && fallDist > minFallDistance.getValueFloat() && !slamExecuted && slamTick == 0) {
-            if (savedSlot == -1)
-                savedSlot = mc.player.getInventory().selectedSlot;
-            slamTick = 1;
-        }
+    if (savedSlot == -1)
+        savedSlot = mc.player.getInventory().selectedSlot;
 
-        if (slamTick == 1) {
-            int axeSlot = onlyAxe.getValue() ? mc.player.getInventory().selectedSlot : getAxeSlotId();
-            if (axeSlot != -1) {
-                mc.player.getInventory().selectedSlot = axeSlot;
-                ((MinecraftClientAccessor) mc).invokeDoAttack();
-            }
-            slamTick = 2;
-        } else if (slamTick == 2) {
-            switchToMace();
-            slamExecuted = true;
-            slamTick = 0;
-        }
+    slamTick = 1;
+    slamTimer.reset();
+}
+ 
+        if if (slamTick == 1) {
+    if (!slamTimer.hasElapsedTime((long) slamDelay.getValue(), true))
+        return;
+
+    int axeSlot = onlyAxe.getValue()
+            ? mc.player.getInventory().selectedSlot
+            : getAxeSlotId();
+
+    if (axeSlot != -1) {
+        mc.player.getInventory().selectedSlot = axeSlot;
+        ((MinecraftClientAccessor) mc).invokeDoAttack();
     }
+
+    slamTick = 2;
+    slamTimer.reset();
+}
+else if (slamTick == 2) {
+    if (!slamTimer.hasElapsedTime((long) slamDelay.getValue(), true))
+        return;
+
+    switchToMace();
+    slamExecuted = true;
+    slamTick = 0;
+}
 
     private void handleMaceAttack(Entity target) {
         if (maceHit) return;
