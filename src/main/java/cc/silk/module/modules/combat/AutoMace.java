@@ -116,56 +116,55 @@ private final TimerUtil slamTimer = new TimerUtil();
         }
     }
 
-    private void handleSlam(Entity target, double fallDist) {
-        boolean targetBlocking = target instanceof PlayerEntity player &&
-                player.isHolding(Items.SHIELD) &&
-                player.isBlocking();
+ private void handleSlam(Entity target, double fallDist) {
+    boolean targetBlocking = target instanceof PlayerEntity player &&
+            player.isHolding(Items.SHIELD) &&
+            player.isBlocking();
 
-        if (onlyAxe.getValue() && !isAxe(mc.player.getMainHandStack())) {
-            return;
-        }
-if (targetBlocking
-        && fallDist > minFallDistance.getValueFloat()
-        && !slamExecuted
-        && slamTick == 0) {
-
-    if (savedSlot == -1)
-        savedSlot = mc.player.getInventory().selectedSlot;
-
-    slamTick = 1;
-    slamTimer.reset();
-}
-
-// Wait for delay (2 ticks or whatever you set)
-if (slamTick == 1) {
-    if (!slamTimer.hasElapsedTime((long) slamDelay.getValue(), true))
+    if (onlyAxe.getValue() && !isAxe(mc.player.getMainHandStack())) {
         return;
-
-    slamTick = 2;
-}
-
-
-    int axeSlot = onlyAxe.getValue()
-            ? mc.player.getInventory().selectedSlot
-            : getAxeSlotId();
-
-    if (axeSlot != -1) {
-        mc.player.getInventory().selectedSlot = axeSlot;
-        ((MinecraftClientAccessor) mc).invokeDoAttack();
     }
 
-    slamTick = 2;
-    slamTimer.reset();
-}
-else if (slamTick == 2) {
-    if (!slamTimer.hasElapsedTime((long) slamDelay.getValue(), true))
-        return;
+    // 1️⃣ Start slam (always when blocking)
+    if (targetBlocking
+            && fallDist > minFallDistance.getValueFloat()
+            && !slamExecuted
+            && slamTick == 0) {
 
-    switchToMace();
-    slamExecuted = true;
-    slamTick = 0;
+        if (savedSlot == -1)
+            savedSlot = mc.player.getInventory().selectedSlot;
+
+        slamTick = 1;
+        slamTimer.reset();
+        return;
+    }
+
+    // 2️⃣ Wait ~2 ticks (human delay)
+    if (slamTick == 1) {
+        if (!slamTimer.hasElapsedTime((long) slamDelay.getValue(), true))
+            return;
+
+        slamTick = 2;
+        return;
+    }
+
+    // 3️⃣ Execute stun slam
+    if (slamTick == 2) {
+        int axeSlot = onlyAxe.getValue()
+                ? mc.player.getInventory().selectedSlot
+                : getAxeSlotId();
+
+        if (axeSlot != -1) {
+            mc.player.getInventory().selectedSlot = axeSlot;
+            ((MinecraftClientAccessor) mc).invokeDoAttack();
+        }
+
+        switchToMace();
+        slamExecuted = true;
+        slamTick = 0;
+    }
 }
-}
+
 
 
 
