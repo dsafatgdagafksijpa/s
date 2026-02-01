@@ -130,8 +130,7 @@ private final TimerUtil slamTimer = new TimerUtil();
     slamTick = 1;
     slamTimer.reset();
 }
- 
-        if if (slamTick == 1) {
+ if (slamTick == 1) {
     if (!slamTimer.hasElapsedTime((long) slamDelay.getValue(), true))
         return;
 
@@ -155,6 +154,7 @@ else if (slamTick == 2) {
     slamExecuted = true;
     slamTick = 0;
 }
+
 
     private void handleMaceAttack(Entity target) {
         if (maceHit) return;
