@@ -154,6 +154,8 @@ else if (slamTick == 2) {
     slamExecuted = true;
     slamTick = 0;
 }
+}
+
 
 
     private void handleMaceAttack(Entity target) {
