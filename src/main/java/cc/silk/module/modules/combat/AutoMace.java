@@ -124,17 +124,26 @@ private final TimerUtil slamTimer = new TimerUtil();
         if (onlyAxe.getValue() && !isAxe(mc.player.getMainHandStack())) {
             return;
         }
+if (targetBlocking
+        && fallDist > minFallDistance.getValueFloat()
+        && !slamExecuted
+        && slamTick == 0) {
 
-        if (targetBlocking && fallDist > minFallDistance.getValueFloat() && !slamExecuted && slamTick == 0) {
     if (savedSlot == -1)
         savedSlot = mc.player.getInventory().selectedSlot;
 
     slamTick = 1;
     slamTimer.reset();
 }
- if (slamTick == 1) {
+
+// Wait for delay (2 ticks or whatever you set)
+if (slamTick == 1) {
     if (!slamTimer.hasElapsedTime((long) slamDelay.getValue(), true))
         return;
+
+    slamTick = 2;
+}
+
 
     int axeSlot = onlyAxe.getValue()
             ? mc.player.getInventory().selectedSlot
