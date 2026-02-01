@@ -24,7 +24,9 @@ public final class AutoMace extends Module {
 
     private final NumberSetting minFallDistance = new NumberSetting("Min Fall Distance", 1.0, 10.0, 3.0, 0.5);
     private final NumberSetting attackDelay = new NumberSetting("Attack Delay", 0, 500, 100, 10);
-    private final NumberSetting slamDelay =
+    private final NumberSetting slamChance =
+        new NumberSetting("Stun Slam Chance", 0, 100, 70, 5); // default 70%
+private final NumberSetting slamDelay =
         new NumberSetting("Stun Slam Delay", 50, 500, 200, 25);
 
 private final TimerUtil slamTimer = new TimerUtil();
@@ -48,7 +50,7 @@ private final TimerUtil slamTimer = new TimerUtil();
     public AutoMace() {
         super("Auto Mace", "Automatically attacks with mace", -1, Category.COMBAT);
         this.addSettings(minFallDistance, attackDelay, densityThreshold, targetPlayers, targetMobs, stunSlam,
-        onlyAxe, autoSwitch, stayOnMace, slamDelay);
+        onlyAxe, autoSwitch, stayOnMace, slamDelay, slamChance);
     }
 
     @EventHandler
