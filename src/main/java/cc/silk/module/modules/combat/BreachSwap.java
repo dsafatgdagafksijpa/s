@@ -2,7 +2,6 @@ package cc.silk.module.modules.combat;
 
 import cc.silk.event.impl.input.HandleInputEvent;
 import cc.silk.event.impl.player.AttackEvent;
-import cc.silk.event.impl.player.TickEvent;
 import cc.silk.mixin.MinecraftClientAccessor;
 import cc.silk.module.Category;
 import cc.silk.module.Module;
@@ -83,6 +82,7 @@ public final class BreachSwap extends Module {
         if (ShieldBreaker.breakingShield)
             return;
 
+        // Only handle switching back after an attack
         if (shouldSwitchBack && System.currentTimeMillis() - switchTime >= switchDelay.getValue()) {
             if (originalSlot != -1) {
                 mc.player.getInventory().selectedSlot = originalSlot;
@@ -90,7 +90,7 @@ public final class BreachSwap extends Module {
             }
             shouldSwitchBack = false;
         }
-
+    }
 
     private int findBreachMaceSlot() {
         for (int i = 0; i < 9; i++) {
