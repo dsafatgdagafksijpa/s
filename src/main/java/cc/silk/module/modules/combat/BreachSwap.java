@@ -91,34 +91,6 @@ public final class BreachSwap extends Module {
             shouldSwitchBack = false;
         }
 
-        if (mc.options.attackKey.isPressed()) {
-            HitResult hitResult = mc.crosshairTarget;
-            if (hitResult instanceof EntityHitResult ehr && ehr.getEntity() instanceof LivingEntity) {
-                int maceSlot = findBreachMaceSlot();
-                if (maceSlot != -1) {
-                    if (originalSlot == -1) {
-                        originalSlot = mc.player.getInventory().selectedSlot;
-                    }
-
-                    if (silentSwap.getValue()) {
-                        int prevSlot = mc.player.getInventory().selectedSlot;
-                        mc.player.getInventory().selectedSlot = maceSlot;
-
-                        ((MinecraftClientAccessor) mc).invokeDoAttack();
-
-                        mc.player.getInventory().selectedSlot = prevSlot;
-                    } else {
-                        mc.player.getInventory().selectedSlot = maceSlot;
-
-                        ((MinecraftClientAccessor) mc).invokeDoAttack();
-
-                        switchTime = System.currentTimeMillis();
-                        shouldSwitchBack = true;
-                    }
-                }
-            }
-        }
-    }
 
     private int findBreachMaceSlot() {
         for (int i = 0; i < 9; i++) {
