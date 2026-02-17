@@ -55,9 +55,9 @@ public final class PearlCatch extends Module {
         int pearlSlot = findPearlSlot();
         if (pearlSlot == -1) return;
 
-        if (mc.player.getItemCooldownManager().isCoolingDown(Items.ENDER_PEARL)) {
-            return;
-        }
+        if (mc.player.getItemCooldownManager().isCoolingDown(new ItemStack(Items.ENDER_PEARL))) {
+    return;
+}
 
         mc.player.getInventory().selectedSlot = pearlSlot;
         ((MinecraftClientAccessor) mc).invokeDoItemUse();
@@ -70,9 +70,9 @@ public final class PearlCatch extends Module {
         int windChargeSlot = findWindChargeSlot();
         if (windChargeSlot == -1) return;
 
-        if (mc.player.getItemCooldownManager().isCoolingDown(Items.WIND_CHARGE)) {
-            return;
-        }
+       if (mc.player.getItemCooldownManager().isCoolingDown(new ItemStack(Items.WIND_CHARGE))) {
+    return;
+}
 
         mc.player.getInventory().selectedSlot = windChargeSlot;
         ((MinecraftClientAccessor) mc).invokeDoItemUse();
