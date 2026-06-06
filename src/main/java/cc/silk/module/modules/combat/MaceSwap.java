@@ -1,8 +1,8 @@
 package cc.silk.module.modules.combat;
 
-import cc.silk.event.impl.player.AttackEntityEvent;
+import cc.silk.event.impl.player.AttackEvent;
 import cc.silk.event.impl.player.TickEvent;
-import cc.silk.event.impl.input.KeyboardEvent;
+import cc.silk.event.impl.input.HandleInputEvent;
 import cc.silk.mixin.MinecraftClientAccessor;
 import cc.silk.module.Category;
 import cc.silk.module.Module;
@@ -37,47 +37,46 @@ import org.lwjgl.glfw.GLFW;
 public final class MaceSwap extends Module {
 
     // ── Settings ────────────────────────────────────────────────────────────
-    private final NumberSetting  fallThreshold  = new NumberSetting("Fall Threshold",      1.0, 20.0, 3.0, 0.5);
-    private final NumberSetting  swapDelay      = new NumberSetting("Swap Delay (ticks)",  1,   10,   2,   1);
-    private final BooleanSetting targetPlayers  = new BooleanSetting("Target Players",     true);
-    private final BooleanSetting targetMobs     = new BooleanSetting("Target Mobs",        false);
+    private final NumberSetting  fallThreshold  = new NumberSetting("Fall Threshold",     1.0, 20.0, 3.0, 0.5);
+    private final NumberSetting  swapDelay      = new NumberSetting("Swap Delay (ticks)", 1,   10,   2,   1);
+    private final BooleanSetting targetPlayers  = new BooleanSetting("Target Players",    true);
+    private final BooleanSetting targetMobs     = new BooleanSetting("Target Mobs",       false);
 
     // ── State machine ────────────────────────────────────────────────────────
-    /**
-     * IDLE       – waiting for a click
-     * AXE_SWAP   – ticking down before switching to axe
-     * AXE_HIT    – firing the axe hit this tick
-     * MACE_SWAP  – ticking down before switching to mace
-     * MACE_HIT   – firing the mace hit this tick
-     * SWORD_SWAP – ticking down before switching back to sword, then IDLE
-     */
     private enum State { IDLE, AXE_SWAP, AXE_HIT, MACE_SWAP, MACE_HIT, SWORD_SWAP }
 
-    private State  state        = State.IDLE;
-    private int    tickCounter  = 0;
-    private Entity pendingTarget = null;
-
-    /** True after click 1 on a shielding player — waiting for click 2 */
+    private State  state             = State.IDLE;
+    private int    tickCounter       = 0;
+    private Entity pendingTarget     = null;
     private boolean awaitingSecondClick = false;
 
     // Track local player fall distance
     private double  fallStartY = -1;
     private boolean isFalling  = false;
 
+    // Key debounce — prevents toggle firing every tick while C is held
+    private boolean cKeyWasDown = false;
+
     public MaceSwap() {
         super("Mace Swap", "Smart mace/axe swap on left-click", -1, Category.COMBAT);
         this.addSettings(fallThreshold, swapDelay, targetPlayers, targetMobs);
     }
 
-    // ── Keybind: C toggles the module (skipped when any screen is open) ───
+    // ── Keybind: C toggles the module via HandleInputEvent ───────────────────
+    // HandleInputEvent fires every input tick — we poll GLFW directly and
+    // debounce with cKeyWasDown so one physical press = one toggle.
 
     @EventHandler
-    private void onKey(KeyboardEvent event) {
-        // mc.currentScreen != null means chat / inventory / any GUI is open — ignore
-        if (mc.currentScreen != null) return;
-        if (event.key == GLFW.GLFW_KEY_C && event.action == GLFW.GLFW_PRESS) {
+    private void onHandleInput(HandleInputEvent event) {
+        if (mc.currentScreen != null) {
+            cKeyWasDown = false; // reset when screen opens so no phantom toggle
+            return;
+        }
+        boolean cDown = GLFW.glfwGetKey(mc.getWindow().getHandle(), GLFW.GLFW_KEY_C) == GLFW.GLFW_PRESS;
+        if (cDown && !cKeyWasDown) {
             this.toggle();
         }
+        cKeyWasDown = cDown;
     }
 
     // ── Tick handler ─────────────────────────────────────────────────────────
@@ -97,7 +96,7 @@ public final class MaceSwap extends Module {
 
         if (onGround) {
             isFalling  = false;
-            fallStartY = currentY; // reset baseline to ground level each landing
+            fallStartY = currentY;
             return;
         }
 
@@ -112,13 +111,13 @@ public final class MaceSwap extends Module {
         return Math.max(0, fallStartY - mc.player.getY());
     }
 
-    // ── Attack event (left-click interception) ────────────────────────────────
+    // ── Attack event ──────────────────────────────────────────────────────────
 
     @EventHandler
-    private void onAttack(AttackEntityEvent event) {
+    private void onAttack(AttackEvent event) {
         if (isNull()) return;
 
-        Entity target = event.entity;
+        Entity target = event.getTarget();
         if (!isValidTarget(target)) return;
         if (FriendManager.isFriend(target.getUuid())) return;
 
@@ -126,20 +125,20 @@ public final class MaceSwap extends Module {
 
         if (targetShielding) {
             if (!awaitingSecondClick) {
-                // Click 1: cancel vanilla swing, start axe swap sequence
+                // Click 1: cancel vanilla swing, start axe swap
                 event.cancel();
                 pendingTarget       = target;
                 awaitingSecondClick = true;
                 startState(State.AXE_SWAP);
             } else {
-                // Click 2: cancel vanilla swing, start mace swap sequence
+                // Click 2: cancel vanilla swing, start mace swap
                 event.cancel();
                 pendingTarget       = target;
                 awaitingSecondClick = false;
                 startState(State.MACE_SWAP);
             }
         } else {
-            // Normal target: cancel vanilla swing, go straight to mace
+            // Normal target: go straight to mace
             event.cancel();
             pendingTarget       = target;
             awaitingSecondClick = false;
@@ -147,13 +146,13 @@ public final class MaceSwap extends Module {
         }
     }
 
-    // ── State machine tick ────────────────────────────────────────────────────
+    // ── State machine ─────────────────────────────────────────────────────────
 
     private void tickStateMachine() {
         if (state == State.IDLE) return;
 
         tickCounter--;
-        if (tickCounter > 0) return; // still counting down
+        if (tickCounter > 0) return;
 
         switch (state) {
             case AXE_SWAP -> {
@@ -165,7 +164,7 @@ public final class MaceSwap extends Module {
                 if (pendingTarget != null && isValidTarget(pendingTarget)) {
                     ((MinecraftClientAccessor) mc).invokeDoAttack();
                 }
-                // Return to IDLE — player must click again for the mace hit
+                // Return to IDLE — player clicks again for the mace hit
                 state       = State.IDLE;
                 tickCounter = 0;
             }
@@ -208,10 +207,6 @@ public final class MaceSwap extends Module {
         return -1;
     }
 
-    /**
-     * Density if fell >= threshold, Breach otherwise.
-     * Falls back to the other enchant, then any mace, if preferred isn't found.
-     */
     private int findBestMaceSlot(double fallDist) {
         boolean preferDensity = fallDist >= fallThreshold.getValueFloat();
         int preferred = preferDensity ? findDensityMaceSlot() : findBreachMaceSlot();
@@ -291,7 +286,6 @@ public final class MaceSwap extends Module {
 
     @Override
     public void onDisable() {
-        // Best-effort sword return when toggled off mid-sequence
         int swordSlot = findSwordSlot();
         if (swordSlot != -1) mc.player.getInventory().selectedSlot = swordSlot;
         resetAll();
@@ -304,5 +298,6 @@ public final class MaceSwap extends Module {
         awaitingSecondClick = false;
         fallStartY          = -1;
         isFalling           = false;
+        cKeyWasDown         = false;
     }
 }
