@@ -1,7 +1,7 @@
 package cc.silk.module.modules.misc;
 
 import cc.silk.event.impl.player.TickEvent;
-import cc.silk.event.impl.input.KeyboardEvent;
+import cc.silk.event.impl.input.HandleInputEvent;
 import cc.silk.mixin.MinecraftClientAccessor;
 import cc.silk.module.Category;
 import cc.silk.module.Module;
@@ -43,7 +43,7 @@ public final class PearlCatch extends Module {
     private final NumberSetting  predictionTicks  = new NumberSetting("Predict Ticks",  1.0, 20.0, 6.0,  1.0);
     private final NumberSetting  maxRange         = new NumberSetting("Max Range",      5.0, 64.0, 32.0, 1.0);
 
-    // ── Pearl physics constants (Minecraft internals) ─────────────────────────
+    // ── Pearl physics constants ───────────────────────────────────────────────
     private static final double PEARL_DRAG        = 0.99;
     private static final double PEARL_GRAVITY     = 0.03;
     private static final double WIND_CHARGE_SPEED = 1.5; // blocks/tick, approx
@@ -52,20 +52,27 @@ public final class PearlCatch extends Module {
     private EnderPearlEntity trackedPearl = null;
     private boolean          fired        = false;
 
+    // Key debounce
+    private boolean vKeyWasDown = false;
+
     public PearlCatch() {
         super("Pearl Catch", "Smoothly aims wind charge to catch ender pearls", -1, Category.MISC);
         this.addSettings(catchOwnPearls, catchEnemyPearls, aimSpeed, fireThreshold, predictionTicks, maxRange);
     }
 
-    // ── Keybind: V toggles the module (skipped when any screen is open) ───────
+    // ── Keybind: V toggles the module via HandleInputEvent ───────────────────
 
     @EventHandler
-    private void onKey(KeyboardEvent event) {
-        // mc.currentScreen != null means chat / inventory / any GUI is open — ignore
-        if (mc.currentScreen != null) return;
-        if (event.key == GLFW.GLFW_KEY_V && event.action == GLFW.GLFW_PRESS) {
+    private void onHandleInput(HandleInputEvent event) {
+        if (mc.currentScreen != null) {
+            vKeyWasDown = false;
+            return;
+        }
+        boolean vDown = GLFW.glfwGetKey(mc.getWindow().getHandle(), GLFW.GLFW_KEY_V) == GLFW.GLFW_PRESS;
+        if (vDown && !vKeyWasDown) {
             this.toggle();
         }
+        vKeyWasDown = vDown;
     }
 
     // ── Main tick ─────────────────────────────────────────────────────────────
@@ -82,8 +89,8 @@ public final class PearlCatch extends Module {
         }
 
         // 2. Predict where pearl will be when wind charge arrives
-        Vec3d  eyePos     = mc.player.getEyePos();
-        double distNow    = eyePos.distanceTo(trackedPearl.getPos());
+        Vec3d  eyePos      = mc.player.getEyePos();
+        double distNow     = eyePos.distanceTo(trackedPearl.getPos());
         int    travelTicks = (int) Math.ceil(distNow / WIND_CHARGE_SPEED);
         int    simTicks    = Math.min(travelTicks, (int) predictionTicks.getValue());
 
@@ -103,7 +110,7 @@ public final class PearlCatch extends Module {
         float angularDist = (float) Math.sqrt(yawDelta * yawDelta + pitchDelta * pitchDelta);
 
         float speed = Math.min(angularDist, (float) aimSpeed.getValue() * (angularDist / 45f + 0.3f));
-        speed = Math.max(speed, 0.3f); // always closing in, never stalls
+        speed = Math.max(speed, 0.3f);
 
         if (angularDist > 0.01f) {
             float ratio    = speed / angularDist;
@@ -173,8 +180,8 @@ public final class PearlCatch extends Module {
      *   vy -= gravity, velocity *= drag, position += velocity
      */
     private Vec3d simulatePearl(EnderPearlEntity pearl, int ticks) {
-        double x  = pearl.getX(),            y  = pearl.getY(),            z  = pearl.getZ();
-        double vx = pearl.getVelocity().x,   vy = pearl.getVelocity().y,   vz = pearl.getVelocity().z;
+        double x  = pearl.getX(),          y  = pearl.getY(),          z  = pearl.getZ();
+        double vx = pearl.getVelocity().x, vy = pearl.getVelocity().y, vz = pearl.getVelocity().z;
 
         for (int i = 0; i < ticks; i++) {
             vy -= PEARL_GRAVITY;
@@ -222,7 +229,6 @@ public final class PearlCatch extends Module {
     }
 
     private void fireWindCharge() {
-        // Check hotbar first
         for (int i = 0; i < 9; i++) {
             if (mc.player.getInventory().getStack(i).getItem() == Items.WIND_CHARGE) {
                 int prev = mc.player.getInventory().selectedSlot;
@@ -232,7 +238,6 @@ public final class PearlCatch extends Module {
                 return;
             }
         }
-        // Fallback: off-hand
         if (mc.player.getOffHandStack().getItem() == Items.WIND_CHARGE) {
             mc.interactionManager.interactItem(mc.player, Hand.OFF_HAND);
         }
@@ -244,11 +249,13 @@ public final class PearlCatch extends Module {
     public void onEnable() {
         trackedPearl = null;
         fired        = false;
+        vKeyWasDown  = false;
     }
 
     @Override
     public void onDisable() {
         trackedPearl = null;
         fired        = false;
+        vKeyWasDown  = false;
     }
 }
